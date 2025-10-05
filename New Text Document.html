@@ -1,0 +1,360 @@
+<!doctype html>
+<html lang="fa" dir="rtl">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>شبیه‌ساز تغییر حالت ماده</title>
+  <style>
+    :root{ --bg:#0f172a; --card:#0b1220; --accent:#60a5fa; --muted:#94a3b8; color-scheme: dark; }
+    *{box-sizing:border-box;font-family:Tahoma, Arial, sans-serif}
+    body{margin:0;min-height:100vh;background:linear-gradient(180deg,#001219 0%, #05304a 60%);color:#e6eef8;padding:18px}
+    .app{max-width:1100px;margin:12px auto;padding:18px;background:linear-gradient(180deg, rgba(255,255,255,0.02), rgba(0,0,0,0.05));border-radius:12px;box-shadow:0 8px 24px rgba(2,6,23,.6)}
+    header{display:flex;gap:12px;align-items:center}
+    h1{margin:0;font-size:20px}
+    .controls{display:flex;gap:12px;flex-wrap:wrap;margin-top:12px}
+    .card{background:var(--card);padding:12px;border-radius:10px;flex:1;min-width:260px}
+    .big{flex:2}
+    label{display:block;font-size:13px;color:var(--muted);margin-bottom:6px}
+    .row{display:flex;gap:8px;align-items:center}
+    input[type=range]{width:100%}
+    button{background:var(--accent);border:none;padding:8px 12px;border-radius:8px;color:#05203a;cursor:pointer;font-weight:600}
+    button.ghost{background:transparent;border:1px solid rgba(255,255,255,0.06);color:var(--muted)}
+    .canvas-wrap{display:flex;gap:12px}
+    canvas{background:linear-gradient(180deg,#041627,#072239);border-radius:10px;width:100%;height:380px}
+    .status{margin-top:8px;font-size:14px;color:#dbeafe}
+    .thermo{font-weight:700;margin-top:6px}
+    .legend{display:flex;gap:8px;flex-wrap:wrap;margin-top:8px}
+    .chip{padding:6px 8px;border-radius:8px;background:rgba(255,255,255,0.02);font-size:13px}
+    .speech{margin-top:8px;background:linear-gradient(90deg, rgba(255,255,255,0.02), rgba(255,255,255,0.01));padding:10px;border-radius:8px;color:var(--muted)}
+    footer{margin-top:12px;font-size:13px;color:var(--muted)}
+    .chart{height:120px;background:linear-gradient(180deg,#021a26,#042233);border-radius:8px;padding:6px}
+    @media (max-width:880px){.canvas-wrap{flex-direction:column}canvas{height:260px}}
+  </style>
+</head>
+<body>
+  <div class="app">
+    <header>
+      <img src="data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='44' height='44' viewBox='0 0 24 24' fill='none'><circle cx='12' cy='12' r='10' fill='%2360a5fa'/><path d='M8 14l4-8 4 8H8z' fill='%2301222b'/></svg>" alt="logo" style="width:44px;height:44px;border-radius:8px">
+      <div>
+        <h1>شبیه‌ساز تغییر حالت ماده — فصل ۱ و ۲ علوم هفتم</h1>
+        <div style="font-size:13px;color:var(--muted)">مولکول‌ها را تماشا کن، دما را تغییر بده، و ببین ماده جامد، مایع یا گاز می‌شود.</div>
+      </div>
+    </header>
+
+    <div class="controls">
+      <div class="card">
+        <label>دمای فعلی: <span id="tempLabel" class="thermo">20 °C</span></label>
+        <div class="row">
+          <button id="dec" class="ghost">-</button>
+          <input id="tempSlider" type="range" min="-30" max="200" value="20">
+          <button id="inc" class="ghost">+</button>
+        </div>
+
+        <div class="row" style="margin-top:10px">
+          <button id="heat">گرم کن ▶</button>
+          <button id="cool" class="ghost">سرد کن ◀</button>
+          <button id="toggleAnim" class="ghost">توقف/شروع</button>
+        </div>
+
+        <div class="legend">
+          <div class="chip">آستانهٔ ذوب: 0°C</div>
+          <div class="chip">آستانهٔ جوش: 100°C</div>
+          <div class="chip">عدد مولکول: <span id="nParticle">60</span></div>
+        </div>
+
+        <div class="speech" id="narration">راهنما: دما را تغییر بده تا حالت ماده را ببینی. (یخ → آب → بخار)</div>
+      </div>
+
+      <div class="card big">
+        <div class="canvas-wrap">
+          <canvas id="simCanvas" width="700" height="380"></canvas>
+        </div>
+        <div class="status">حالت فعلی: <strong id="state">مایع</strong></div>
+      </div>
+
+      <div class="card" style="min-width:260px">
+        <label>تصویر ماده</label>
+        <div id="visual" style="height:120px;display:flex;align-items:center;justify-content:center"></div>
+
+        <label style="margin-top:8px">نمودار دما (آخرین ثانیه‌ها)</label>
+        <div class="chart"><canvas id="chartCanvas" width="400" height="110"></canvas></div>
+
+        <div style="margin-top:8px">
+          <label>تنظیمات</label>
+          <div class="row" style="margin-top:6px">
+            <label style="width:120px">سرعت نمایش ذرات</label>
+            <input id="particleRange" type="range" min="20" max="200" value="60">
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <footer>راهنما: می‌توانی اسلایدر را حرکت دهی یا دکمه‌های گرم/سرد را نگه داری تا دما به مرور تغییر کند. این صفحه به‌صورت محلی اجرا می‌شود.</footer>
+  </div>
+
+  <script>
+    // تنظیمات اولیه
+    const canvas = document.getElementById('simCanvas');
+    const ctx = canvas.getContext('2d');
+    const chart = document.getElementById('chartCanvas');
+    const cctx = chart.getContext('2d');
+    const tempSlider = document.getElementById('tempSlider');
+    const tempLabel = document.getElementById('tempLabel');
+    const stateLabel = document.getElementById('state');
+    const narration = document.getElementById('narration');
+    const visual = document.getElementById('visual');
+    const particleRange = document.getElementById('particleRange');
+    const nParticleLabel = document.getElementById('nParticle');
+
+    let temperature = Number(tempSlider.value);
+    const melt = 0; // ذوب
+    const boil = 100; // جوش
+    let particles = [];
+    let animationOn = true;
+    let particleCount = 60;
+    nParticleLabel.textContent = particleCount;
+
+    // ایجاد ذرات
+    function resetParticles(){
+      particles = [];
+      const W = canvas.width, H = canvas.height;
+      for(let i=0;i<particleCount;i++){
+        particles.push({
+          x: Math.random()* (W-40) + 20,
+          y: Math.random()* (H-40) + 20,
+          vx: (Math.random()-0.5)*1,
+          vy: (Math.random()-0.5)*1,
+          r: 4 + Math.random()*3
+        });
+      }
+    }
+
+    resetParticles();
+
+    // حالت بر اساس دما
+    function stateOf(temp){
+      if(temp <= melt) return 'جامد';
+      if(temp >= boil) return 'گاز';
+      return 'مایع';
+    }
+
+    // نمایش تصویری ماده (از SVG داخلی برای جلوگیری از درخواست به وب)
+    function renderVisual(temp){
+      const st = stateOf(temp);
+      visual.innerHTML = '';
+      if(st === 'جامد'){
+        visual.innerHTML = `
+          <svg width="160" height="100" viewBox="0 0 160 100" xmlns="http://www.w3.org/2000/svg">
+            <rect x="20" y="35" width="120" height="40" rx="6" fill="#9ad1ff" stroke="#6fb4e6" />
+            <text x="80" y="60" fill="#022" font-size="14" text-anchor="middle" font-weight="700">یخ (جامد)</text>
+          </svg>`
+      } else if(st === 'مایع'){
+        visual.innerHTML = `
+          <svg width="160" height="100" viewBox="0 0 160 100">
+            <path d="M10 60 Q40 45 80 60 T150 60 L150 80 L10 80 Z" fill="#3aa0ff" stroke="#2b88dd" />
+            <text x="80" y="75" fill="#022" font-size="14" text-anchor="middle" font-weight="700">آب (مایع)</text>
+          </svg>`
+      } else {
+        visual.innerHTML = `
+          <svg width="160" height="100" viewBox="0 0 160 100">
+            <g fill="#dbeffd">
+              <circle cx="60" cy="40" r="8"/>
+              <circle cx="80" cy="20" r="6"/>
+              <circle cx="100" cy="45" r="7"/>
+            </g>
+            <text x="80" y="85" fill="#e6f3ff" font-size="14" text-anchor="middle" font-weight="700">بخار (گاز)</text>
+          </svg>`
+      }
+    }
+
+    renderVisual(temperature);
+
+    // آوا: از WebAudio برای یه صدای ساده استفاده می‌کنیم
+    const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    let osc = null;
+    function startTone(freq){
+      if(osc) return;
+      osc = audioCtx.createOscillator();
+      const gain = audioCtx.createGain();
+      osc.type = 'sine';
+      osc.frequency.value = freq;
+      gain.gain.value = 0.03;
+      osc.connect(gain).connect(audioCtx.destination);
+      osc.start();
+    }
+    function stopTone(){ if(osc){ osc.stop(); osc.disconnect(); osc=null; } }
+
+    // تابع رسم شبیه‌سازی
+    function step(dt){
+      const W = canvas.width, H = canvas.height;
+      // سرعت پایه بر اساس دما
+      const speedBase = Math.max(0.2, Math.abs(temperature)/50);
+      const state = stateOf(temperature);
+      for(let p of particles){
+        // رفتار متفاوت به ازای حالت
+        if(state === 'جامد'){
+          // فقط لرزش کوچک در محل
+          p.vx += (Math.random()-0.5)*0.08 * (particleRange.value/60);
+          p.vy += (Math.random()-0.5)*0.08 * (particleRange.value/60);
+          p.vx *= 0.92; p.vy *= 0.92;
+        } else if(state === 'مایع'){
+          p.vx += (Math.random()-0.5)*0.6 * speedBase * (particleRange.value/60);
+          p.vy += (Math.random()-0.5)*0.6 * speedBase * (particleRange.value/60);
+          p.vx *= 0.98; p.vy *= 0.98;
+        } else {
+          // گاز: حرکت سریع و برخورد با دیواره
+          p.vx += (Math.random()-0.5)*1.6 * speedBase * (particleRange.value/60);
+          p.vy += (Math.random()-0.5)*1.6 * speedBase * (particleRange.value/60);
+        }
+
+        p.x += p.vx * (dt/16);
+        p.y += p.vy * (dt/16);
+
+        // همگرا/دور شدن: در حالت جامد ذرات میل به نزدیک شدن دارند
+        if(state === 'جامد'){
+          // کشش ملایم به مرکز خوشه
+          const cx = W/2, cy = H/2;
+          p.vx += (cx - p.x)*0.0003;
+          p.vy += (cy - p.y)*0.0003;
+        }
+
+        // برخورد با دیواره
+        if(p.x < 8){ p.x=8; p.vx = Math.abs(p.vx)*0.6; }
+        if(p.x > W-8){ p.x=W-8; p.vx = -Math.abs(p.vx)*0.6; }
+        if(p.y < 8){ p.y=8; p.vy = Math.abs(p.vy)*0.6; }
+        if(p.y > H-8){ p.y=H-8; p.vy = -Math.abs(p.vy)*0.6; }
+      }
+    }
+
+    function render(){
+      const W = canvas.width, H = canvas.height;
+      ctx.clearRect(0,0,W,H);
+      // پس‌زمینه ظرف / شعله
+      ctx.fillStyle = 'rgba(255,255,255,0.02)';
+      ctx.fillRect(6,6,W-12,H-12);
+
+      // رسم ذرات
+      for(let p of particles){
+        // رنگ بر اساس حالت
+        const st = stateOf(temperature);
+        if(st === 'جامد') ctx.fillStyle = '#cfefff';
+        else if(st === 'مایع') ctx.fillStyle = '#66b8ff';
+        else ctx.fillStyle = '#eaf6ff';
+
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, p.r, 0, Math.PI*2);
+        ctx.fill();
+      }
+
+      // نمایش متن دما
+      ctx.fillStyle = 'rgba(255,255,255,0.06)';
+      ctx.fillRect(10,10,120,36);
+      ctx.fillStyle = '#e6f3ff';
+      ctx.font = '14px Tahoma';
+      ctx.fillText('دمای محیط: '+temperature+' °C',18,34);
+    }
+
+    // حلقه‌ی انیمیشن
+    let last = performance.now();
+    function loop(now){
+      const dt = now - last; last = now;
+      if(animationOn) step(dt);
+      render();
+      requestAnimationFrame(loop);
+    }
+    requestAnimationFrame(loop);
+
+    // به‌روزرسانی برچسب‌ها و نمودار
+    tempSlider.addEventListener('input', ()=>{ temperature = Number(tempSlider.value); tempLabel.textContent = temperature + ' °C'; updateState(); });
+    document.getElementById('inc').addEventListener('click', ()=>{ tempSlider.value = Number(tempSlider.value)+1; tempSlider.dispatchEvent(new Event('input')); });
+    document.getElementById('dec').addEventListener('click', ()=>{ tempSlider.value = Number(tempSlider.value)-1; tempSlider.dispatchEvent(new Event('input')); });
+
+    document.getElementById('heat').addEventListener('mousedown', ()=>{ heatInterval = setInterval(()=>{ tempSlider.value = Math.min(200, Number(tempSlider.value)+1); tempSlider.dispatchEvent(new Event('input')); },120) });
+    document.getElementById('heat').addEventListener('mouseup', ()=>{ clearInterval(heatInterval); });
+    document.getElementById('heat').addEventListener('mouseleave', ()=>{ clearInterval(heatInterval); });
+
+    document.getElementById('cool').addEventListener('mousedown', ()=>{ coolInterval = setInterval(()=>{ tempSlider.value = Math.max(-30, Number(tempSlider.value)-1); tempSlider.dispatchEvent(new Event('input')); },120) });
+    document.getElementById('cool').addEventListener('mouseup', ()=>{ clearInterval(coolInterval); });
+    document.getElementById('cool').addEventListener('mouseleave', ()=>{ clearInterval(coolInterval); });
+
+    document.getElementById('toggleAnim').addEventListener('click', ()=>{ animationOn = !animationOn; document.getElementById('toggleAnim').textContent = animationOn? 'توقف/شروع' : 'توقف/شروع'; });
+
+    particleRange.addEventListener('input', ()=>{ /* تنظیم شدت */ });
+
+    // نمودار دما (آخرین 60 مقدار)
+    const history = [];
+    function updateChart(){
+      history.push(temperature);
+      if(history.length>60) history.shift();
+      // پاکسازی
+      cctx.clearRect(0,0,chart.width,chart.height);
+      // پس‌زمینه
+      cctx.fillStyle = 'rgba(255,255,255,0.02)'; cctx.fillRect(0,0,chart.width,chart.height);
+      // محور
+      cctx.strokeStyle = 'rgba(255,255,255,0.08)'; cctx.beginPath(); cctx.moveTo(0,chart.height-10); cctx.lineTo(chart.width,chart.height-10); cctx.stroke();
+      // رسم خطوط و مقادیر ساده
+      cctx.fillStyle = '#9fbfe9'; cctx.font='11px Tahoma'; cctx.fillText(melt+'°C',4,12);
+      cctx.fillText(boil+'°C',4,chart.height-2);
+      // مسیر
+      cctx.strokeStyle = '#8fd1ff'; cctx.beginPath();
+      for(let i=0;i<history.length;i++){
+        const x = (i/(60-1))*chart.width;
+        // map temperature range -30..200 to chart height
+        const t = history[i];
+        const minT = -30, maxT = 200;
+        const y = chart.height - 10 - ((t-minT)/(maxT-minT))*(chart.height-20);
+        if(i===0) cctx.moveTo(x,y); else cctx.lineTo(x,y);
+      }
+      cctx.stroke();
+    }
+
+    setInterval(updateChart, 400);
+
+    // به‌روزرسانی کلی وضعیت
+    function updateState(){
+      const st = stateOf(temperature);
+      stateLabel.textContent = st;
+      renderVisual(temperature);
+      // متن راهنما
+      if(st==='جامد') narration.textContent = 'حالت: جامد — مولکول‌ها در جای خود لرزش دارند و نزدیک هم‌اند.';
+      else if(st==='مایع') narration.textContent = 'حالت: مایع — مولکول‌ها آزادترند و می‌توانند جا‌به‌جا شوند.';
+      else narration.textContent = 'حالت: گاز — مولکول‌ها سریع و پراکنده‌اند.';
+
+      // تغییر صدا (صدای بیشتری هنگام جوش)
+      if(temperature >= boil){ startTone(880); }
+      else if(temperature > 40){ startTone(220 + (temperature-40)*6); }
+      else { stopTone(); }
+
+      // اگر حالت تغییر کرد، تغییر در رفتار ذرات
+      // تعداد ذرات را بر حسب حالت تغییر می‌دهیم تا تفاوت واضح‌تر شود
+      const prevCount = particleCount;
+      if(st === 'جامد') particleCount = Math.max(30, Number(particleRange.value));
+      else if(st === 'مایع') particleCount = Math.max(40, Number(particleRange.value));
+      else particleCount = Math.max(20, Number(particleRange.value));
+      nParticleLabel.textContent = particleCount;
+      if(prevCount !== particleCount) resetParticles();
+    }
+
+    updateState();
+
+    // جلوگیری از قطع شدن صدای بخاطر autoplay policy: صدا پس از اولین تعامل فعال می‌شود
+    ['mousedown','touchstart'].forEach(e => document.addEventListener(e, ()=>{ if(audioCtx.state==='suspended') audioCtx.resume(); }, {once:true}));
+
+    // اندازه‌گیری ریسپانسیو
+    function fitCanvas(){
+      const rect = canvas.getBoundingClientRect();
+      canvas.width = Math.max(400, Math.floor(rect.width));
+      canvas.height = Math.max(240, Math.floor(rect.height));
+      // نمودار
+      const crect = chart.getBoundingClientRect();
+      chart.width = Math.max(300, Math.floor(crect.width));
+      chart.height = 110;
+      resetParticles();
+    }
+    window.addEventListener('resize', fitCanvas);
+    fitCanvas();
+
+    // نکته: اگر می‌خواهی این فایل را به عنوان صفحه محلی (file://) باز کنی، کافی است آن را ذخیره و باز کنی.
+  </script>
+</body>
+</html>
